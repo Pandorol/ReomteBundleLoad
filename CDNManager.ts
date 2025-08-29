@@ -1,28 +1,33 @@
 import { sys } from "cc";
-import { MyDefine } from "../../data/MyDefine";
+import { EDITOR } from "cc/env";
+import { GameSdk, MyDefine } from "../../data/MyDefine";
 export class CDNManager {
 // 可用CDN域名池（优先级从高到低）
     cdnPool = [
         "http://172.16.40.20:4002",
-        "http://172.16.40.20:4001",
-        "http://172.16.40.20:4000"
     ];
     private currentBundleURL = "";
-    private remoteBundleName = "remotemain";
+    private remoteBundleName = "mainResources";
     private remoteBundleVersion = "";
+    private isLocal = false;
         // 私有构造函数
-    constructor(_remoteBundleName: string,_remoteBundleVersion: string) {
+    constructor(_remoteBundleName: string,_remoteBundleVersion: string,_isLocal: boolean = false) {
         this.remoteBundleName = _remoteBundleName;
+        
+        if(MyDefine.GameSdk === GameSdk.local_demo||EDITOR || sys.isBrowser){
+            this.isLocal =true; // 本地包跳过remoteBundle
+            return ;
+        }
+        this.isLocal = _isLocal;
         this.remoteBundleVersion = _remoteBundleVersion;
         const customPool = MyDefine.get("remotebundleCDNPool");
-        console.log("====")
         if (Array.isArray(customPool) && customPool.length > 0) {
             console.log(customPool.toString())
             this.cdnPool = customPool;
         }
         const savedBundleName = sys.localStorage.getItem("savedBundleURL"+this.remoteBundleName);
         if (savedBundleName !== null) {
-            const cleanedsavedBundleName =CDNManager.removeTrailingSlash(savedBundleName) ;
+            const cleanedsavedBundleName = CDNManager.removeTrailingSlash(savedBundleName) ;
             this.currentBundleURL=cleanedsavedBundleName
         }else{
             this.currentBundleURL=this.getURL(0)
@@ -31,19 +36,34 @@ export class CDNManager {
 
 
     // 解析带CDN域名的完整路径
-    resolveURL() {
+    get resolveURL() {
+        if(this.isLocal){ // 本地包跳过remoteBundle
+            return `${this.resolveBundleName}`;
+        }
         return this.currentBundleURL;
     }
-    resolveBundleName(){
+
+    // bundle名称
+    get resolveBundleName(){
         return this.remoteBundleName
     }
-    resolveBundleVersion(){
+
+    // bundle版本
+    get resolveBundleVersion(){
+        if(this.isLocal){ // 本地包跳过remoteBundle
+            return "";
+        }
         return this.remoteBundleVersion
     }
-    getURL(index){
-        return `${this.cdnPool[index%(this.cdnPool.length)]}/remote/${this.resolveBundleName()}`;
+
+    getURL(index: number){
+        if(this.isLocal){  // 本地包跳过remoteBundle
+            return `${this.resolveBundleName}`;
+        }
+        return `${this.cdnPool[index%(this.cdnPool.length)]}/${this.resolveBundleName}`;
     }
-    getMaxIndex(){
+
+    get getMaxIndex(){
         return this.cdnPool.length;
     }
 

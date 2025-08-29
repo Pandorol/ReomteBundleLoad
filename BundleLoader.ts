@@ -1,5 +1,4 @@
-import { Asset, AssetManager, assetManager, error, js, resources, __private } from "cc";
-import { sys } from "cc";
+import { __private, Asset, AssetManager, assetManager, error, js, resources, sys } from "cc";
 import { CDNManager } from "./CDNManager";
 
 type AssetType<T = any> = __private._types_globals__Constructor<T> | null;
@@ -21,31 +20,29 @@ type LoadFunction = (
 ) => void;
 
 export class BundleLoader {
-    private defaultBundleName: string ="remotemain"
+    private defaultBundleName: string ="mainResources"
     private bundleVersion: string = "";
     private cdnManager: CDNManager;
-    
-    constructor(_bundleName: string= "remotemain",_bundleVersion: string = "") {
+
+    get name(): string {
+        return this.defaultBundleName;
+    }
+
+    constructor(_bundleName: string= "mainResources",_bundleVersion: string = "",islocal: boolean = false) {
         this.defaultBundleName = _bundleName;
         this.bundleVersion = _bundleVersion;
-        this.cdnManager = new CDNManager(this.defaultBundleName,this.bundleVersion);
+        this.cdnManager = new CDNManager(this.defaultBundleName,this.bundleVersion,islocal);
     }
     
     public static shouldRetryCDN(err: Error): boolean {
         const msg = (err?.message || err?.toString() || '').toLowerCase();;
         console.log("shouldRetryCDN(err: Error) msg="+msg)
-        
         // 典型需要重试的网络类错误
-        if (
-            msg.includes('failed to connect')//连不上，已知道的会报错的信息
-        ) {
+        if (msg.includes('failed to connect')) {  //连不上，已知道的会报错的信息
             return true;
         }
-        if (
-            //不需要切换重连，因为不是网络的问题是bundle上没有这个资源等的问题
-            msg.includes("doesn't contain")  // 资源未包含，已知道的会报错的信息
-
-        ) {
+        //不需要切换重连，因为不是网络的问题是bundle上没有这个资源等的问题
+        if (msg.includes("doesn't contain")) {  // 资源未包含，已知道的会报错的信息
             return false;
         }
 
@@ -66,22 +63,17 @@ export class BundleLoader {
                 onComplete(err, data);
             }
         };
-
-
-
         
-        const maxIndex = self.cdnManager.getMaxIndex();
+        const maxIndex = self.cdnManager.getMaxIndex;
 
         const untestedURLs: string[] = [];
         for (let i = 0; i < maxIndex; i++) {
             untestedURLs.push(self.cdnManager.getURL(i));
         }
-
         const tryLoad = (tryBundle: AssetManager.Bundle) => {
             loadFunc(tryBundle, onProgress ?? null, (err, data) => {
                 if (err) {
                     console.warn(`资源加载失败 [${tryBundle.base}]，切换 CDN 重试....`, err.message);
-
                     const idx = untestedURLs.indexOf(CDNManager.removeTrailingSlash(tryBundle.base));
                     if (idx !== -1) untestedURLs.splice(idx, 1);
 
@@ -90,7 +82,6 @@ export class BundleLoader {
                         safeOnComplete(err, null);
                         return;
                     }
-
                     tryNextCDN();
                 } else {
                     safeOnComplete(null, data);
@@ -155,7 +146,7 @@ export class BundleLoader {
         onProgress: ((finished: number, total: number, item: AssetManager.RequestItem) => void) | null,
         onComplete: ((err: Error | null, data: any | any[] | null) => void)| null){
 
-        console.log("bundleLoad")        
+        // console.log("bundleLoad")        
         
         this.loadWithCDNRetry(
             bundle,
@@ -170,7 +161,6 @@ export class BundleLoader {
         type: __private._types_globals__Constructor<any>,
         onProgress: ((finished: number, total: number, item: AssetManager.RequestItem) => void) | null, 
         onComplete: ((err: Error | null, data: any[] | null) => void)| null): void {
-
             console.log("bundleLoadDir")    
             this.loadWithCDNRetry(
                 bundle,
@@ -185,8 +175,8 @@ export class BundleLoader {
         v?: string ,
         onComplete?: (err: Error | null, bundle?: AssetManager.Bundle) => void) {
         console.log("loadOneBundle bundleName="+bundleName)
-        if(!bundleName) bundleName = this.cdnManager.resolveURL()
-        if(!v) v = this.cdnManager.resolveBundleVersion()
+        if(!bundleName) bundleName = this.cdnManager.resolveURL
+        if(!v) v = this.cdnManager.resolveBundleVersion
         
         // 步骤3：加载Bundle
         return new Promise<AssetManager.Bundle>((resolve, reject) => {
@@ -213,12 +203,13 @@ export class BundleLoader {
         v?: string ,
         onComplete?: (err: Error | null, bundle?: AssetManager.Bundle) => void) {
         const self = this;
-        if(!bundleName) bundleName = self.cdnManager.resolveURL()
-        if(!v) v = self.cdnManager.resolveBundleVersion()
 
+
+        if(!bundleName) bundleName = self.cdnManager.resolveURL
+        if(!v) v = self.cdnManager.resolveBundleVersion
 
         
-        const maxIndex = self.cdnManager.getMaxIndex();
+        const maxIndex = self.cdnManager.getMaxIndex;
 
         const untestedURLs: string[] = [];
         for (let i = 0; i < maxIndex; i++) {
@@ -288,7 +279,7 @@ export class BundleLoader {
     ) {
         let args: ILoadResArgs<T> | null = null;
         if (typeof paths === "string" || paths instanceof Array) {
-            //args = this.parseLoadResArgs(paths, type, onProgress, onComplete);
+            args = this.parseLoadResArgs(paths, type, onProgress, onComplete);
             args.bundle = bundleName;
         }
         else {
@@ -390,7 +381,7 @@ export class BundleLoader {
 
     private loadByBundleAndArgs<T extends Asset>(bundle: AssetManager.Bundle, args: ILoadResArgs<T>): void {
                 
-        console.log(`loadByBundleAndArgs`);
+        // console.log(`loadByBundleAndArgs`);
         if (args.dir) {
             this.bundleLoadDir(bundle,args.paths as string, args.type, args.onProgress, args.onComplete);
         }
@@ -552,7 +543,7 @@ export class BundleLoader {
     */
     public getInfoWithPath<T extends Asset>(path: string, type?: __private._types_globals__Constructor<T> | null, bundleName?: string): __private._cocos_asset_asset_manager_config__IAddressableInfo | null {
         if (bundleName == null) bundleName = this.defaultBundleName;
-        console.log(`getInfoWithPath+bundleName=`+bundleName);
+        // console.log(`getInfoWithPath+bundleName=`+bundleName);
         
        
         var bundle: AssetManager.Bundle = assetManager.getBundle(bundleName)!;
@@ -565,7 +556,7 @@ export class BundleLoader {
      */
     public getAssetInfo(uuid:string, bundleName?: string) : __private._cocos_asset_asset_manager_config__IAddressableInfo | null{
         if (bundleName == null) bundleName = this.defaultBundleName;
-        console.log(`getAssetInfo+bundleName=`+bundleName);
+        // console.log(`getAssetInfo+bundleName=`+bundleName);
         var bundle: AssetManager.Bundle = assetManager.getBundle(bundleName)!;
         if (bundle.getAssetInfo(uuid)) {
             return bundle.getAssetInfo(uuid) as __private._cocos_asset_asset_manager_config__IAddressableInfo;
